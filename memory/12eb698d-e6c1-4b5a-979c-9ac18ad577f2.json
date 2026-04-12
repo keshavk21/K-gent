@@ -1,0 +1,22 @@
+[
+  {
+    "role": "user",
+    "content": "hi i'm pranjal",
+    "timestamp": "2026-04-08T17:13:48.015950"
+  },
+  {
+    "role": "assistant",
+    "content": "Hi Pranjal, nice to connect with you. I'm Keshav, a software engineer with a strong focus on AI and machine learning. I've been working on some interesting projects lately, including building production-grade AI solutions for real-world applications. What brings you to my website today? Are you interested in learning more about my work or perhaps exploring potential collaboration opportunities?",
+    "timestamp": "2026-04-08T17:13:48.016899"
+  },
+  {
+    "role": "user",
+    "content": "what is my name",
+    "timestamp": "2026-04-08T17:13:59.681545"
+  },
+  {
+    "role": "assistant",
+    "content": "Your name is Pranjal. We just introduced ourselves a moment ago.",
+    "timestamp": "2026-04-08T17:13:59.681545"
+  }
+]

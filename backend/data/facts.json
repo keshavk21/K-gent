@@ -1,0 +1,23 @@
+{
+  "full_name": "Keshav Khandelwal",
+  "name": "Keshav",
+  "current_role": "Software Engineer",
+  "location": "Jaipur, India",
+  "email": "keshav.khandelwal@example.com",
+  "linkedin": "https://www.linkedin.com/in/kesav01/",
+  "X": "https://x.com/NeuralKeshav",
+  "Github":"https://github.com/keshavk21", 
+  "specialties": [
+    "AI/ML Engineering",
+    "Cloud Computing",
+    "Backend Engineering"
+  ],
+  "years_experience": 1,
+  "education": [
+    {
+      "degree": "B.tech-CSE ",
+      "institution": "JECRC University",
+      "year": "2022-2026"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+[
+  {
+    "role": "user",
+    "content": "hi"
+  },
+  {
+    "role": "assistant",
+    "content": "Hello. I'm Keshav Khandelwal, an AI/ML Engineer with a passion for building and scaling modern AI systems. It's great to connect with you. What brings you to my website today? Are you interested in discussing Natural Language Processing, Large Language Models, or perhaps exploring potential collaboration opportunities in AI research?"
+  },
+  {
+    "role": "user",
+    "content": "my name is Pranjal"
+  },
+  {
+    "role": "assistant",
+    "content": "Nice to meet you, Pranjal. Welcome to my website. I'm excited to learn more about your interests and background. Are you also working in the field of Artificial Intelligence or Machine Learning, or is there something specific that drew you to my site? I'm happy to chat about my work, share my experiences, or explore potential areas of common interest."
+  },
+  {
+    "role": "user",
+    "content": "what is my name"
+  },
+  {
+    "role": "assistant",
+    "content": "Your name is Pranjal. We just introduced ourselves a moment ago. How can I assist you today, Pranjal?"
+  }
+]
