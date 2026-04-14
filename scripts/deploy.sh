@@ -28,11 +28,29 @@ else
   terraform workspace select "$ENVIRONMENT"
 fi
 
+# Common terraform vars (OIDC resources are managed locally, not in CI/CD)
+TF_COMMON_VARS=(-var="project_name=$PROJECT_NAME" -var="environment=$ENVIRONMENT" -var="manage_github_oidc=false" -input=false)
+
+# Import existing S3 buckets if not already in state
+echo "📥 Checking for existing resources to import..."
+MEMORY_BUCKET="${PROJECT_NAME}-${ENVIRONMENT}-memory-${AWS_ACCOUNT_ID}"
+FRONTEND_BUCKET="${PROJECT_NAME}-${ENVIRONMENT}-frontend-${AWS_ACCOUNT_ID}"
+
+if ! terraform state show aws_s3_bucket.memory 2>/dev/null; then
+  echo "Importing memory bucket..."
+  terraform import "${TF_COMMON_VARS[@]}" aws_s3_bucket.memory "$MEMORY_BUCKET" 2>/dev/null || true
+fi
+
+if ! terraform state show aws_s3_bucket.frontend 2>/dev/null; then
+  echo "Importing frontend bucket..."
+  terraform import "${TF_COMMON_VARS[@]}" aws_s3_bucket.frontend "$FRONTEND_BUCKET" 2>/dev/null || true
+fi
+
 # Use prod.tfvars for production environment
 if [ "$ENVIRONMENT" = "prod" ]; then
-  TF_APPLY_CMD=(terraform apply -var-file=prod.tfvars -var="project_name=$PROJECT_NAME" -var="environment=$ENVIRONMENT" -auto-approve)
+  TF_APPLY_CMD=(terraform apply -var-file=prod.tfvars "${TF_COMMON_VARS[@]}" -auto-approve)
 else
-  TF_APPLY_CMD=(terraform apply -var="project_name=$PROJECT_NAME" -var="environment=$ENVIRONMENT" -auto-approve)
+  TF_APPLY_CMD=(terraform apply "${TF_COMMON_VARS[@]}" -auto-approve)
 fi
 
 echo "🎯 Applying Terraform..."

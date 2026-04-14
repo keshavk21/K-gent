@@ -1,5 +1,5 @@
 # This creates an IAM role that GitHub Actions can assume
-# Run this once, then you can remove the file
+# These resources are managed locally, NOT by CI/CD (set manage_github_oidc = true locally)
 
 variable "github_repository" {
   description = "GitHub repository in format 'owner/repo'"
@@ -7,12 +7,18 @@ variable "github_repository" {
   default     = "keshavk21/digital-twin"
 }
 
+variable "manage_github_oidc" {
+  description = "Whether to manage GitHub OIDC resources (set true only for local apply, false in CI/CD)"
+  type        = bool
+  default     = false
+}
+
 # Note: aws_caller_identity.current is already defined in main.tf
 
 # GitHub OIDC Provider
-# Note: If this already exists in your account, you'll need to import it:
-# terraform import aws_iam_openid_connect_provider.github arn:aws:iam::ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com
 resource "aws_iam_openid_connect_provider" "github" {
+  count = var.manage_github_oidc ? 1 : 0
+
   url = "https://token.actions.githubusercontent.com"
   
   client_id_list = [
@@ -20,7 +26,6 @@ resource "aws_iam_openid_connect_provider" "github" {
   ]
   
   # This thumbprint is from GitHub's documentation
-  # Verify current value at: https://github.blog/changelog/2023-06-27-github-actions-update-on-oidc-integration-with-aws/
   thumbprint_list = [
     "1b511abead59c6ce207077c0bf0e0043b1382612"
   ]
@@ -28,6 +33,8 @@ resource "aws_iam_openid_connect_provider" "github" {
 
 # IAM Role for GitHub Actions
 resource "aws_iam_role" "github_actions" {
+  count = var.manage_github_oidc ? 1 : 0
+
   name = "github-actions-twin-deploy"
   
   assume_role_policy = jsonencode({
@@ -36,7 +43,7 @@ resource "aws_iam_role" "github_actions" {
       {
         Effect = "Allow"
         Principal = {
-          Federated = aws_iam_openid_connect_provider.github.arn
+          Federated = aws_iam_openid_connect_provider.github[0].arn
         }
         Action = "sts:AssumeRoleWithWebIdentity"
         Condition = {
@@ -60,54 +67,64 @@ resource "aws_iam_role" "github_actions" {
 
 # Attach necessary policies
 resource "aws_iam_role_policy_attachment" "github_lambda" {
+  count      = var.manage_github_oidc ? 1 : 0
   policy_arn = "arn:aws:iam::aws:policy/AWSLambda_FullAccess"
-  role       = aws_iam_role.github_actions.name
+  role       = aws_iam_role.github_actions[0].name
 }
 
 resource "aws_iam_role_policy_attachment" "github_s3" {
+  count      = var.manage_github_oidc ? 1 : 0
   policy_arn = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
-  role       = aws_iam_role.github_actions.name
+  role       = aws_iam_role.github_actions[0].name
 }
 
 resource "aws_iam_role_policy_attachment" "github_apigateway" {
+  count      = var.manage_github_oidc ? 1 : 0
   policy_arn = "arn:aws:iam::aws:policy/AmazonAPIGatewayAdministrator"
-  role       = aws_iam_role.github_actions.name
+  role       = aws_iam_role.github_actions[0].name
 }
 
 resource "aws_iam_role_policy_attachment" "github_cloudfront" {
+  count      = var.manage_github_oidc ? 1 : 0
   policy_arn = "arn:aws:iam::aws:policy/CloudFrontFullAccess"
-  role       = aws_iam_role.github_actions.name
+  role       = aws_iam_role.github_actions[0].name
 }
 
 resource "aws_iam_role_policy_attachment" "github_iam_read" {
+  count      = var.manage_github_oidc ? 1 : 0
   policy_arn = "arn:aws:iam::aws:policy/IAMReadOnlyAccess"
-  role       = aws_iam_role.github_actions.name
+  role       = aws_iam_role.github_actions[0].name
 }
 
 resource "aws_iam_role_policy_attachment" "github_bedrock" {
+  count      = var.manage_github_oidc ? 1 : 0
   policy_arn = "arn:aws:iam::aws:policy/AmazonBedrockFullAccess"
-  role       = aws_iam_role.github_actions.name
+  role       = aws_iam_role.github_actions[0].name
 }
 
 resource "aws_iam_role_policy_attachment" "github_dynamodb" {
+  count      = var.manage_github_oidc ? 1 : 0
   policy_arn = "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
-  role       = aws_iam_role.github_actions.name
+  role       = aws_iam_role.github_actions[0].name
 }
 
 resource "aws_iam_role_policy_attachment" "github_acm" {
+  count      = var.manage_github_oidc ? 1 : 0
   policy_arn = "arn:aws:iam::aws:policy/AWSCertificateManagerFullAccess"
-  role       = aws_iam_role.github_actions.name
+  role       = aws_iam_role.github_actions[0].name
 }
 
 resource "aws_iam_role_policy_attachment" "github_route53" {
+  count      = var.manage_github_oidc ? 1 : 0
   policy_arn = "arn:aws:iam::aws:policy/AmazonRoute53FullAccess"
-  role       = aws_iam_role.github_actions.name
+  role       = aws_iam_role.github_actions[0].name
 }
 
 # Custom policy for additional permissions
 resource "aws_iam_role_policy" "github_additional" {
-  name = "github-actions-additional"
-  role = aws_iam_role.github_actions.id
+  count = var.manage_github_oidc ? 1 : 0
+  name  = "github-actions-additional"
+  role  = aws_iam_role.github_actions[0].id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -139,5 +156,5 @@ resource "aws_iam_role_policy" "github_additional" {
 }
 
 output "github_actions_role_arn" {
-  value = aws_iam_role.github_actions.arn
+  value = var.manage_github_oidc ? aws_iam_role.github_actions[0].arn : ""
 }
