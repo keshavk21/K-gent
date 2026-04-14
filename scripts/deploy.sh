@@ -84,16 +84,21 @@ if [ -n "$API_GW_ID" ] && [ "$API_GW_ID" != "None" ]; then
     try_import "aws_apigatewayv2_integration.lambda" "${API_GW_ID}/${INTEGRATION_ID}"
   fi
 
-  # Import routes
-  for ROUTE_KEY_ENCODED in $(aws apigatewayv2 get-routes --api-id "$API_GW_ID" --query "Items[*].[RouteId,RouteKey]" --output text 2>/dev/null | while read -r rid rkey_rest; do echo "${rid}:${rkey_rest}"; done); do
-    ROUTE_ID=$(echo "$ROUTE_KEY_ENCODED" | cut -d: -f1)
-    ROUTE_KEY=$(echo "$ROUTE_KEY_ENCODED" | cut -d: -f2-)
-    case "$ROUTE_KEY" in
-      "GET /")       try_import "aws_apigatewayv2_route.get_root"   "${API_GW_ID}/${ROUTE_ID}" ;;
-      "POST /chat")  try_import "aws_apigatewayv2_route.post_chat"  "${API_GW_ID}/${ROUTE_ID}" ;;
-      "GET /health") try_import "aws_apigatewayv2_route.get_health" "${API_GW_ID}/${ROUTE_ID}" ;;
-    esac
-  done
+  # Import routes — look up each route directly by its key to avoid word-splitting issues
+  import_route() {
+    local tf_name="$1"
+    local route_key="$2"
+    local rid
+    rid=$(aws apigatewayv2 get-routes --api-id "$API_GW_ID" \
+      --query "Items[?RouteKey=='${route_key}'].RouteId | [0]" --output text 2>/dev/null || true)
+    if [ -n "$rid" ] && [ "$rid" != "None" ]; then
+      try_import "$tf_name" "${API_GW_ID}/${rid}"
+    fi
+  }
+
+  import_route "aws_apigatewayv2_route.get_root"   "GET /"
+  import_route "aws_apigatewayv2_route.post_chat"   "POST /chat"
+  import_route "aws_apigatewayv2_route.get_health"  "GET /health"
 
   # Import Lambda permission for API Gateway
   try_import "aws_lambda_permission.api_gw" "${LAMBDA_NAME}/AllowExecutionFromAPIGateway"
