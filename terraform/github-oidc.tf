@@ -4,6 +4,7 @@
 variable "github_repository" {
   description = "GitHub repository in format 'owner/repo'"
   type        = string
+  default     = "keshavk21/digital-twin"
 }
 
 # Note: aws_caller_identity.current is already defined in main.tf
