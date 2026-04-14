@@ -1,6 +1,6 @@
-# Digital Twin
+# K! gent
 
-A serverless AI-powered digital twin application that creates a conversational replica of a person, hosted on their personal or professional website. Visitors can interact with the digital twin through a chat interface, and the system responds as if they were speaking with the real person, drawing from curated context including LinkedIn data, personal summaries, and communication style preferences.
+A serverless AI-powered digital twin application that creates a conversational replica of Keshav, hosted on their personal or professional website. Visitors can interact with the digital twin through a chat interface, and the system responds as if they were speaking with the real person, drawing from curated context including LinkedIn data, personal summaries, and communication style preferences.
 
 ## Table of Contents
 
