@@ -31,20 +31,32 @@ fi
 # Common terraform vars (OIDC resources are managed locally, not in CI/CD)
 TF_COMMON_VARS=(-var="project_name=$PROJECT_NAME" -var="environment=$ENVIRONMENT" -var="manage_github_oidc=false" -input=false)
 
-# Import existing S3 buckets if not already in state
+# Helper: import a resource if not already in state
+try_import() {
+  local resource_addr="$1"
+  local resource_id="$2"
+  if ! terraform state show "$resource_addr" &>/dev/null; then
+    echo "  Importing $resource_addr..."
+    terraform import "${TF_COMMON_VARS[@]}" "$resource_addr" "$resource_id" 2>/dev/null || true
+  fi
+}
+
+# Import existing resources that may have been created by a previous local apply
 echo "📥 Checking for existing resources to import..."
-MEMORY_BUCKET="${PROJECT_NAME}-${ENVIRONMENT}-memory-${AWS_ACCOUNT_ID}"
-FRONTEND_BUCKET="${PROJECT_NAME}-${ENVIRONMENT}-frontend-${AWS_ACCOUNT_ID}"
+NAME_PREFIX="${PROJECT_NAME}-${ENVIRONMENT}"
 
-if ! terraform state show aws_s3_bucket.memory 2>/dev/null; then
-  echo "Importing memory bucket..."
-  terraform import "${TF_COMMON_VARS[@]}" aws_s3_bucket.memory "$MEMORY_BUCKET" 2>/dev/null || true
-fi
+# S3 Buckets
+try_import "aws_s3_bucket.memory" "${NAME_PREFIX}-memory-${AWS_ACCOUNT_ID}"
+try_import "aws_s3_bucket.frontend" "${NAME_PREFIX}-frontend-${AWS_ACCOUNT_ID}"
 
-if ! terraform state show aws_s3_bucket.frontend 2>/dev/null; then
-  echo "Importing frontend bucket..."
-  terraform import "${TF_COMMON_VARS[@]}" aws_s3_bucket.frontend "$FRONTEND_BUCKET" 2>/dev/null || true
-fi
+# IAM Role for Lambda
+try_import "aws_iam_role.lambda_role" "${NAME_PREFIX}-lambda-role"
+
+# Lambda IAM policy attachments (format: role-name/policy-arn)
+LAMBDA_ROLE="${NAME_PREFIX}-lambda-role"
+try_import "aws_iam_role_policy_attachment.lambda_basic" "${LAMBDA_ROLE}/arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+try_import "aws_iam_role_policy_attachment.lambda_bedrock" "${LAMBDA_ROLE}/arn:aws:iam::aws:policy/AmazonBedrockFullAccess"
+try_import "aws_iam_role_policy_attachment.lambda_s3" "${LAMBDA_ROLE}/arn:aws:iam::aws:policy/AmazonS3FullAccess"
 
 # Use prod.tfvars for production environment
 if [ "$ENVIRONMENT" = "prod" ]; then
