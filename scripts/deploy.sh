@@ -45,18 +45,68 @@ try_import() {
 echo "📥 Checking for existing resources to import..."
 NAME_PREFIX="${PROJECT_NAME}-${ENVIRONMENT}"
 
-# S3 Buckets
-try_import "aws_s3_bucket.memory" "${NAME_PREFIX}-memory-${AWS_ACCOUNT_ID}"
-try_import "aws_s3_bucket.frontend" "${NAME_PREFIX}-frontend-${AWS_ACCOUNT_ID}"
+# ── S3 Buckets ──
+MEMORY_BUCKET="${NAME_PREFIX}-memory-${AWS_ACCOUNT_ID}"
+FRONTEND_BUCKET="${NAME_PREFIX}-frontend-${AWS_ACCOUNT_ID}"
+try_import "aws_s3_bucket.memory" "${MEMORY_BUCKET}"
+try_import "aws_s3_bucket.frontend" "${FRONTEND_BUCKET}"
 
-# IAM Role for Lambda
-try_import "aws_iam_role.lambda_role" "${NAME_PREFIX}-lambda-role"
+# S3 sub-resources (keyed by bucket name)
+try_import "aws_s3_bucket_public_access_block.memory" "${MEMORY_BUCKET}"
+try_import "aws_s3_bucket_public_access_block.frontend" "${FRONTEND_BUCKET}"
+try_import "aws_s3_bucket_ownership_controls.memory" "${MEMORY_BUCKET}"
+try_import "aws_s3_bucket_website_configuration.frontend" "${FRONTEND_BUCKET}"
+try_import "aws_s3_bucket_policy.frontend" "${FRONTEND_BUCKET}"
+
+# ── IAM Role for Lambda ──
+LAMBDA_ROLE="${NAME_PREFIX}-lambda-role"
+try_import "aws_iam_role.lambda_role" "${LAMBDA_ROLE}"
 
 # Lambda IAM policy attachments (format: role-name/policy-arn)
-LAMBDA_ROLE="${NAME_PREFIX}-lambda-role"
 try_import "aws_iam_role_policy_attachment.lambda_basic" "${LAMBDA_ROLE}/arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 try_import "aws_iam_role_policy_attachment.lambda_bedrock" "${LAMBDA_ROLE}/arn:aws:iam::aws:policy/AmazonBedrockFullAccess"
 try_import "aws_iam_role_policy_attachment.lambda_s3" "${LAMBDA_ROLE}/arn:aws:iam::aws:policy/AmazonS3FullAccess"
+
+# ── Lambda Function ──
+LAMBDA_NAME="${NAME_PREFIX}-api"
+try_import "aws_lambda_function.api" "${LAMBDA_NAME}"
+
+# ── API Gateway ──
+# Look up existing API Gateway by name
+API_GW_ID=$(aws apigatewayv2 get-apis --query "Items[?Name=='${NAME_PREFIX}-api-gateway'].ApiId | [0]" --output text 2>/dev/null || true)
+if [ -n "$API_GW_ID" ] && [ "$API_GW_ID" != "None" ]; then
+  try_import "aws_apigatewayv2_api.main" "${API_GW_ID}"
+  try_import "aws_apigatewayv2_stage.default" "${API_GW_ID}/\$default"
+
+  # Import integrations
+  INTEGRATION_ID=$(aws apigatewayv2 get-integrations --api-id "$API_GW_ID" --query "Items[0].IntegrationId" --output text 2>/dev/null || true)
+  if [ -n "$INTEGRATION_ID" ] && [ "$INTEGRATION_ID" != "None" ]; then
+    try_import "aws_apigatewayv2_integration.lambda" "${API_GW_ID}/${INTEGRATION_ID}"
+  fi
+
+  # Import routes
+  for ROUTE_KEY_ENCODED in $(aws apigatewayv2 get-routes --api-id "$API_GW_ID" --query "Items[*].[RouteId,RouteKey]" --output text 2>/dev/null | while read -r rid rkey_rest; do echo "${rid}:${rkey_rest}"; done); do
+    ROUTE_ID=$(echo "$ROUTE_KEY_ENCODED" | cut -d: -f1)
+    ROUTE_KEY=$(echo "$ROUTE_KEY_ENCODED" | cut -d: -f2-)
+    case "$ROUTE_KEY" in
+      "GET /")       try_import "aws_apigatewayv2_route.get_root"   "${API_GW_ID}/${ROUTE_ID}" ;;
+      "POST /chat")  try_import "aws_apigatewayv2_route.post_chat"  "${API_GW_ID}/${ROUTE_ID}" ;;
+      "GET /health") try_import "aws_apigatewayv2_route.get_health" "${API_GW_ID}/${ROUTE_ID}" ;;
+    esac
+  done
+
+  # Import Lambda permission for API Gateway
+  try_import "aws_lambda_permission.api_gw" "${LAMBDA_NAME}/AllowExecutionFromAPIGateway"
+fi
+
+# ── CloudFront Distribution ──
+# Find distribution by looking for our S3 origin
+CF_DIST_ID=$(aws cloudfront list-distributions \
+  --query "DistributionList.Items[?Origins.Items[?contains(DomainName,'${FRONTEND_BUCKET}')]].Id | [0]" \
+  --output text 2>/dev/null || true)
+if [ -n "$CF_DIST_ID" ] && [ "$CF_DIST_ID" != "None" ]; then
+  try_import "aws_cloudfront_distribution.main" "${CF_DIST_ID}"
+fi
 
 # Use prod.tfvars for production environment
 if [ "$ENVIRONMENT" = "prod" ]; then
